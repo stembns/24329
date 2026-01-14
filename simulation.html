@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulation - Smart Bridge Project</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .simulation-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .simulation-canvas-wrapper {
+            background-color: #1a1a1a;
+            border-radius: 12px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        #simulationCanvas {
+            display: block;
+            width: 100%;
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+        }
+        .simulation-ui {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .ui-card {
+            background-color: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+        }
+        .ui-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-light);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .ui-card p {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin: 0;
+        }
+        @media (max-width: 768px) {
+            .simulation-container {
+                padding: 1rem;
+            }
+            .simulation-ui {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar">
+            <div class="container">
+                <h1 class="logo">Smart Bridge Project</h1>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="simulation.html">Simulation</a></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <h2>Simulation</h2>
+                <p>Smart Bridge Hydraulic System Simulation</p>
+            </div>
+        </section>
+
+        <section class="simulation-section">
+            <div class="simulation-container">
+                <div class="simulation-canvas-wrapper">
+                    <canvas id="simulationCanvas" width="1000" height="600"></canvas>
+                </div>
+                <div class="simulation-ui">
+                    <div class="ui-card">
+                        <h3>Vehicles</h3>
+                        <p id="carCount">0</p>
+                    </div>
+                    <div class="ui-card">
+                        <h3>System Status</h3>
+                        <p id="systemStatus">MONITORING</p>
+                    </div>
+                    <div class="ui-card">
+                        <h3>Pump Status</h3>
+                        <p id="pumpStatus">OFF</p>
+                    </div>
+                    <div class="ui-card">
+                        <h3>Bridge State</h3>
+                        <p id="bridgeState">NORMAL</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2024 Smart Bridge Project. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById("simulationCanvas");
+        const ctx = canvas.getContext("2d");
+        const centerX = canvas.width / 2;
+
+        // State Variables
+        let state = "NORMAL";
+        let fluidFlow = 0;
+        let pistonHeight = 0;
+        let bridgeWidth = 60;
+        let cars = [];
+
+        // Car Class
+        class Car {
+            constructor() {
+                this.y = Math.random() * canvas.height;
+                this.lane = Math.random() > 0.5 ? 0 : 2; // 0 = left, 1 = bridge, 2 = right
+                this.speed = 1 + Math.random() * 2;
+                this.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
+                this.updateX();
+            }
+
+            updateX() {
+                const lanePositions = [
+                    centerX - 120,  // Left lane
+                    centerX,        // Bridge lane
+                    centerX + 120   // Right lane
+                ];
+                this.x = lanePositions[this.lane] + (Math.random() - 0.5) * 30;
+            }
+
+            update() {
+                this.y += this.speed;
+                if (this.y > canvas.height) {
+                    this.y = -30;
+                    this.lane = Math.random() > 0.5 ? 0 : 2;
+                    this.updateX();
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x - 15, this.y - 10, 30, 20);
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 1;
+                ctx.strokeRect(this.x - 15, this.y - 10, 30, 20);
+            }
+        }
+
+        // Initialize Cars
+        for (let i = 0; i < 15; i++) {
+            cars.push(new Car());
+        }
+
+        function logicEngine() {
+            // Detect congestion (more than 5 cars on road)
+            const carsOnRoad = cars.filter(c => c.y > 0 && c.y < canvas.height).length;
+            
+            if (carsOnRoad > 5 && state === "NORMAL") {
+                state = "PUMPING";
+            } else if (carsOnRoad <= 3 && (state === "ACTIVE" || state === "EXPANDING")) {
+                state = "RETRACTING";
+            }
+
+            // Phase 1: Pump & Horizontal Syringe
+            if (state === "PUMPING") {
+                fluidFlow += 2;
+                if (fluidFlow >= 100) state = "RAISING";
+            }
+            // Phase 2: Vertical Syringes & Lifting
+            else if (state === "RAISING") {
+                pistonHeight += 1.5;
+                if (pistonHeight >= 100) state = "EXPANDING";
+            }
+            // Phase 3: Blades Expansion
+            else if (state === "EXPANDING") {
+                bridgeWidth += 3;
+                if (bridgeWidth >= 180) { // Double size
+                    state = "ACTIVE";
+                    rebalanceTraffic();
+                }
+            }
+            // Retraction Logic
+            else if (state === "RETRACTING") {
+                if (bridgeWidth > 60) bridgeWidth -= 3;
+                else if (pistonHeight > 0) pistonHeight -= 2;
+                else if (fluidFlow > 0) fluidFlow -= 5;
+                else {
+                    state = "NORMAL";
+                    cars.forEach(c => c.lane = Math.random() > 0.5 ? 0 : 2);
+                    cars.forEach(c => c.updateX());
+                }
+            }
+        }
+
+        function rebalanceTraffic() {
+            // Split cars equally: 33% Left, 33% Bridge, 33% Right
+            cars.forEach((car, i) => {
+                car.lane = i % 3;
+                car.updateX();
+            });
+        }
+
+        function drawHydraulics() {
+            // Horizontal Syringe (Pump System)
+            ctx.strokeStyle = "#555";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(50, 550, 120, 30);
+            ctx.fillStyle = "#2196F3"; // Water Blue
+            ctx.fillRect(50, 555, fluidFlow * 1.2, 20);
+            ctx.fillStyle = "#fff";
+            ctx.font = "12px Arial";
+            ctx.fillText("PULSE FLOW", 50, 540);
+
+            // Connection Pipe
+            ctx.beginPath();
+            ctx.moveTo(170, 565);
+            ctx.lineTo(centerX, 565);
+            ctx.strokeStyle = fluidFlow > 50 ? "#2196F3" : "#444";
+            ctx.stroke();
+
+            // Vertical Syringes (Lifting Mechanism)
+            const syrX = [centerX - 60, centerX + 60];
+            syrX.forEach(x => {
+                ctx.fillStyle = "#444";
+                ctx.fillRect(x - 10, 500, 20, 65); // Body
+                ctx.fillStyle = "#2196F3";
+                ctx.fillRect(x - 5, 500 + (100 - pistonHeight) * 0.5, 10, pistonHeight * 0.5); // Fluid
+            });
+        }
+
+        function drawRoadSystem() {
+            // Main Road
+            ctx.fillStyle = "#333";
+            ctx.fillRect(centerX - 200, 0, 400, canvas.height);
+            
+            // Bridge and Blades
+            if (pistonHeight > 10) {
+                ctx.save();
+                ctx.translate(0, -pistonHeight * 0.2); // Visual lift
+                ctx.fillStyle = "#444";
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = "black";
+                ctx.fillRect(centerX - bridgeWidth/2, 0, bridgeWidth, canvas.height);
+                
+                // Road Markings on Bridge
+                ctx.strokeStyle = "#FFD600";
+                ctx.setLineDash([20, 15]);
+                ctx.beginPath();
+                ctx.moveTo(centerX, 0);
+                ctx.lineTo(centerX, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.restore();
+            }
+        }
+
+        function updateUI() {
+            document.getElementById("carCount").innerText = cars.length;
+            document.getElementById("systemStatus").innerText = state === "NORMAL" ? "MONITORING" : "ALERT: CONGESTION";
+            document.getElementById("pumpStatus").innerText = fluidFlow > 0 ? "PUMPING WATER..." : "OFF";
+            document.getElementById("bridgeState").innerText = state;
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            logicEngine();
+            drawRoadSystem();
+            drawHydraulics();
+            cars.forEach(car => { car.update(); car.draw(); });
+            updateUI();
+            requestAnimationFrame(animate);
+        }
+
+        // Start animation
+        animate();
+    </script>
+</body>
+</html>
